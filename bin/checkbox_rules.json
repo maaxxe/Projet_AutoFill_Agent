@@ -1,0 +1,38 @@
+{
+  "false_hints": [
+    "accepte de recevoir",
+    "j accepte de recevoir",
+    "offres commerciales",
+    "offres et informations commerciales",
+    "newsletter",
+    "marketing",
+    "publicite",
+    "publicite",
+    "promotionnel",
+    "promotionnelle",
+    "hear more about",
+    "career opportunit",
+    "receive new job",
+    "job posting notification",
+    "inform me",
+    "keep me informed",
+    "send me",
+    "opt in",
+    "optin"
+  ],
+  "true_hints": [
+    "souhaite conserver mon numero",
+    "souhaite conserver mon numero",
+    "cgu",
+    "conditions generales",
+    "conditions generales",
+    "j ai lu et j accepte",
+    "j'ai lu",
+    "ne souhaite pas recevoir",
+    "do not want to receive",
+    "opt out",
+    "i agree to the terms",
+    "i accept the terms",
+    "terms and conditions"
+  ]
+}
