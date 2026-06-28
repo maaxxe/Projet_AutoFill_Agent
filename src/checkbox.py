@@ -1,10 +1,15 @@
 import json
 from pathlib import Path
 import ollama
-from config import log, USE_OLLAMA, OLLAMA_MODEL
-from utils import normalize
+from .config import log, USE_OLLAMA, OLLAMA_MODEL
+from .utils import normalize
 
-_rules = json.loads(Path("checkbox_rules.json").read_text(encoding="utf-8"))
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+rules_path = ROOT_DIR / "data" / "checkbox_rules.json"
+
+_rules = json.loads(rules_path.read_text(encoding="utf-8"))
+
 FALSE_HINTS = _rules["false_hints"]
 TRUE_HINTS  = _rules["true_hints"]
 

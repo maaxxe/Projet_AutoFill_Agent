@@ -1,7 +1,7 @@
 import json
 import ollama
-from config import log, USE_OLLAMA, OLLAMA_MODEL
-from utils import normalize, slugify
+from .config import log, USE_OLLAMA, OLLAMA_MODEL
+from .utils import normalize, slugify
 
 
 def ask_ollama_for_key(candidates: list, known_data: dict) -> str:

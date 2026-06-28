@@ -1,5 +1,5 @@
-from config import log
-from utils import normalize
+from .config import log
+from .utils import normalize
 
 TECHNICAL_HINTS = [
     "captcha", "token", "csrf", "antibot", "honeypot",

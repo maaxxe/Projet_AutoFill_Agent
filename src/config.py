@@ -1,8 +1,11 @@
 import json
 from pathlib import Path
 
-_cfg = json.loads(Path("config.json").read_text(encoding="utf-8"))
+ROOT_DIR = Path(__file__).resolve().parent.parent
 
+config_path = ROOT_DIR / "data" / "config.json"
+
+_cfg = json.loads(config_path.read_text(encoding="utf-8"))
 DEBUG_URL    = _cfg["debug_url"]
 AUTO_SUBMIT  = _cfg["auto_submit"]
 USE_OLLAMA   = _cfg["use_ollama"]

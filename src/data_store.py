@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
 
-DATA_PATH = Path("data.json")
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
+DATA_PATH = ROOT_DIR / "data" / "data.json"
 
 def load_data() -> dict:
     if DATA_PATH.exists():

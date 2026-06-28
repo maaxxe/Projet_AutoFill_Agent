@@ -1,6 +1,6 @@
-from utils import normalize, slugify
-from config import log
-from ollama_utils import ask_ollama_for_key
+from src.utils import normalize, slugify
+from src.config import log
+from src.ollama_utils import ask_ollama_for_key
 
 FIELD_ALIASES = {
     "prenom":          ["prenom", "prénom", "first name", "firstname", "given name", "forename"],

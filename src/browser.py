@@ -1,4 +1,4 @@
-from config import log
+from src.config import log
 
 
 def pick_page(context):

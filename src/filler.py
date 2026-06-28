@@ -1,5 +1,5 @@
-from config import log
-from utils import normalize
+from .config import log
+from .utils import normalize
 
 
 def handle_radio_group(el, key: str, value: str, candidates: list):
