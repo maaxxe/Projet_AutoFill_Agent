@@ -6,3 +6,5 @@ READMEv1.md
 /.venv
 .envrc
 /.envrc
+/bin/__pycache__/
+/bin/*.pyc
