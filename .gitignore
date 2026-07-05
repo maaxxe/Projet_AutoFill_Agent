@@ -8,3 +8,5 @@ READMEv1.md
 /.envrc
 /src/__pycache__/
 /src/*.pyc
+*.log
+profil.json

@@ -1,17 +1,21 @@
-import json
+import datetime
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+DEBUG_URL = "http://localhost:9222"
+AUTO_SUBMIT = False
 
-config_path = ROOT_DIR / "data" / "config.json"
+OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = "llama3.1"
 
-_cfg = json.loads(config_path.read_text(encoding="utf-8"))
-DEBUG_URL    = _cfg["debug_url"]
-AUTO_SUBMIT  = _cfg["auto_submit"]
-USE_OLLAMA   = _cfg["use_ollama"]
-OLLAMA_MODEL = _cfg["ollama_model"]
-VERBOSE      = _cfg["verbose"]
+LOG_FILE = Path(__file__).resolve().parent.parent / "run.log"
 
-def log(msg: str):
-    if VERBOSE:
-        print(msg)
+
+def log(message: str):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{timestamp}] {message}"
+    print(line)
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass

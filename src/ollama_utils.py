@@ -1,74 +1,91 @@
+"""
+ollama_utils.py v3 : retire définitivement "resume_profil" du profil léger
+envoyé à Ollama. C'était la cause du bug répété où le LLM comblait tout
+champ non identifié avec ce texte long, y compris les dates et attestations.
+
+Ollama ne reçoit plus QUE des données structurées ponctuelles (identite,
+adresse, langues, preferences_candidature). S'il ne trouve rien dans ces
+sections précises, il DOIT renvoyer skip=true plutôt que d'improviser.
+"""
 import json
-import ollama
-from .config import log, USE_OLLAMA, OLLAMA_MODEL
-from .utils import normalize, slugify
+import re
+import requests
+
+from src.config import OLLAMA_URL, OLLAMA_MODEL, log
+
+OLLAMA_TIMEOUT = 60
 
 
-def ask_ollama_for_key(candidates: list, known_data: dict) -> str:
-    if not USE_OLLAMA or not candidates:
-        return "UNKNOWN"
-
-    prompt = f"""Tu aides à remplir un formulaire web.
-
-Clés disponibles dans known_data:
-{list(known_data.keys())}
-
-Textes trouvés pour ce champ de formulaire:
-{candidates}
-
-Règles:
-- Réponds avec UNE seule clé snake_case.
-- Si une clé existante correspond (même approximativement), retourne exactement cette clé.
-  Ex: "nom de famille" → "nom", "numéro de téléphone" → "telephone"
-- Si aucune clé ne correspond, propose une nouvelle clé snake_case courte et descriptive.
-- Si le champ est technique (captcha, token, csrf, honeypot, robot, sécurité), réponds TECHNICAL_FIELD.
-- Si tu ne peux vraiment pas déterminer, réponds UNKNOWN.
-- N'ajoute aucun commentaire, juste la clé."""
-
+def _call_ollama(prompt: str) -> str:
     try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+        resp = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature": 0},
+            },
+            timeout=OLLAMA_TIMEOUT,
         )
-        answer = response["message"]["content"].strip().replace("`", "")
-        answer = answer.splitlines()[0].strip()
-        answer = slugify(answer)
-        return answer if answer else "UNKNOWN"
+        resp.raise_for_status()
+        return resp.json().get("response", "").strip()
     except Exception as e:
         log(f"[OLLAMA][ERREUR] {e}")
-        return "UNKNOWN"
+        return ""
 
 
-def ask_ollama_for_value(candidates: list, key: str, known_data: dict, input_type: str = "text") -> str | None:
-    if not USE_OLLAMA:
-        return None
+def ask_ollama_for_field(candidates: list, profile: dict, input_type: str,
+                          block_row: tuple = None, available_options: list = None):
+    light_profile = {
+        "identite": profile.get("identite", {}),
+        "adresse": profile.get("adresse", {}),
+        "langues": profile.get("langues", []),
+        "preferences_candidature": profile.get("preferences_candidature", {}),
+    }
 
-    known_str = json.dumps(known_data, ensure_ascii=False, indent=2)
+    candidates_text = " | ".join(candidates) if candidates else "(aucun label détecté)"
 
-    prompt = f"""Tu remplis un formulaire web.
+    options_context = ""
+    if available_options:
+        options_context = f"\nOptions disponibles dans ce menu déroulant : {available_options}"
 
-Données connues sur la personne:
-{known_str}
+    prompt = f"""Tu remplis un champ de formulaire de candidature à partir de ce profil :
 
-Le champ de formulaire a ces labels: {candidates}
-La clé détectée pour ce champ est: "{key}"
+{json.dumps(light_profile, ensure_ascii=False)}
 
-Quelle valeur faut-il mettre dans ce champ?
-- Utilise les données connues pour déduire la valeur, même si la clé n'est pas exactement présente.
-  Ex: si le champ demande "nom complet" et que tu as "prenom"="Jean" et "nom"="Dupont", réponds "Jean Dupont".
-- Si tu ne peux vraiment pas déduire la valeur, réponds uniquement: UNKNOWN
-- Réponds uniquement avec la valeur brute, sans guillemets ni explication."""
+Champ à remplir :
+- Labels détectés : {candidates_text}
+- Type HTML : {input_type}
+{options_context}
 
+Règles strictes et non négociables :
+- N'utilise QUE les données explicitement présentes dans le profil ci-dessus.
+- N'invente JAMAIS de texte, ne réutilise JAMAIS une longue description dans un petit champ (date, code, nom, sigle).
+- Si aucune donnée précise du profil ne correspond à ce champ, réponds skip=true. C'est le comportement attendu par défaut.
+- Si c'est un menu déroulant, choisis une valeur qui existe dans les options listées, sinon skip=true.
+
+Réponds uniquement par un JSON strict, sans texte autour :
+{{"key": "nom_libre_debug", "value": "valeur à insérer", "skip": false}}
+"""
+
+    raw = _call_ollama(prompt)
     try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        answer = response["message"]["content"].strip()
-        answer = answer.splitlines()[0].strip().strip('"').strip("'")
-        if not answer or normalize(answer) == "unknown":
-            return None
-        return answer
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if not match:
+            return {"key": None, "value": "", "skip": True}
+        parsed = json.loads(match.group(0))
+        value = str(parsed.get("value", "")).strip()
+
+        if len(value) > 120:
+            log(f"[OLLAMA][GUARD] valeur suspecte rejetée (trop longue): {value[:60]!r}...")
+            return {"key": parsed.get("key"), "value": "", "skip": True}
+
+        return {
+            "key": parsed.get("key"),
+            "value": value,
+            "skip": bool(parsed.get("skip", False)),
+        }
     except Exception as e:
-        log(f"[OLLAMA][VALEUR][ERREUR] {e}")
-        return None
+        log(f"[OLLAMA][PARSE_ERROR] {e} | raw={raw[:200]!r}")
+        return {"key": None, "value": "", "skip": True}

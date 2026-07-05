@@ -3,7 +3,7 @@ from .utils import normalize
 
 TECHNICAL_HINTS = [
     "captcha", "token", "csrf", "antibot", "honeypot",
-    "validate", "validation", "robot", "security", "answer"
+    "validate", "validation", "robot", "security", "answer",
 ]
 
 SKIP_TYPES = {"hidden", "submit", "button", "reset", "file", "image", "password"}
@@ -19,20 +19,20 @@ def candidate_texts(page, el) -> list:
     try:
         labels = el.evaluate("""
             (node) => {
-              const labels = [];
-              if (node.labels) {
-                for (const l of node.labels) labels.push(l.innerText || l.textContent || '');
-              }
-              if (!labels.length) {
-                const id = node.getAttribute('id');
-                if (id) {
-                  const direct = document.querySelector(`label[for="${id}"]`);
-                  if (direct) labels.push(direct.innerText || direct.textContent || '');
+                const labels = [];
+                if (node.labels) {
+                    for (const l of node.labels) labels.push(l.innerText || l.textContent || '');
                 }
-              }
-              const wrapper = node.closest('label');
-              if (wrapper) labels.push(wrapper.innerText || wrapper.textContent || '');
-              return labels.filter(Boolean);
+                if (!labels.length) {
+                    const id = node.getAttribute('id');
+                    if (id) {
+                        const direct = document.querySelector(`label[for="${id}"]`);
+                        if (direct) labels.push(direct.innerText || direct.textContent || '');
+                    }
+                    const wrapper = node.closest('label');
+                    if (wrapper) labels.push(wrapper.innerText || wrapper.textContent || '');
+                }
+                return labels.filter(Boolean);
             }
         """)
         texts.extend([t.strip() for t in labels if t and t.strip()])
@@ -69,14 +69,30 @@ def describe_element(el) -> dict:
     }
 
 
+def get_select_options(el) -> list:
+    """
+    NOUVEAU : extrait les libellés des options d'un <select>, pour les
+    fournir à Ollama et lui permettre de choisir une valeur qui existe
+    réellement dans le menu, plutôt que de deviner un texte libre qui
+    n'y figure jamais (ex: "Usherbrooke" absent d'un menu de provinces).
+    """
+    try:
+        options = el.evaluate("""
+            (select) => Array.from(select.options).map(o => (o.textContent || '').trim())
+        """)
+        return [o for o in options if o]
+    except Exception:
+        return []
+
+
 def should_skip(el, candidates=None) -> bool:
     input_type = (el.get_attribute("type") or "").lower()
     if input_type in SKIP_TYPES:
         return True
 
-    name     = normalize(el.get_attribute("name") or "")
+    name = normalize(el.get_attribute("name") or "")
     field_id = normalize(el.get_attribute("id") or "")
-    text     = normalize(" ".join(candidates or []))
+    text = normalize(" ".join(candidates or []))
 
     if any(h in name or h in field_id or h in text for h in TECHNICAL_HINTS):
         return True

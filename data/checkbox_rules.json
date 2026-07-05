@@ -18,7 +18,12 @@
     "keep me informed",
     "send me",
     "opt in",
-    "optin"
+    "optin",
+    "je refuse",
+    "refuse que",
+    "i refuse",
+    "i decline",
+    "decline the use"
   ],
   "true_hints": [
     "souhaite conserver mon numero",
