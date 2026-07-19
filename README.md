@@ -8,10 +8,21 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python -m playwright install chromium
-
 ```
 
-## Configuration
+## Ollama
+
+Telecharger le model Ollama
+
+```shell
+ollama run <nom-du-model>
+```
+
+Voir les models ollama deja telecharge
+
+```shell
+ollama list
+```
 
 ### `data/config.json`
 
@@ -143,7 +154,6 @@ Règles déterministes pour les cases à cocher, sans appel Ollama.
 
 ```bash
 ollama serve
-
 ```
 
 **Terminal 2 — Chromium**
@@ -221,7 +231,6 @@ jamais fatale pour le reste du formulaire) :
     ├── date     : essai multi-format empirique (voir ci-dessus)
     └── texte    : fill()
         Checkbox : check/uncheck → clic label → JS force
-
 ```
 
 ## Résolution des blocs répétés (expériences / formations / certifications)
@@ -254,7 +263,6 @@ Chaque essai est validé par relecture de `input_value()` et `checkValidity()` a
 playwright>=1.53.0
 ollama>=0.4.0
 requests>=2.31.0
-
 ```
 
 ## Notes
