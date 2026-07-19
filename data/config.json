@@ -1,9 +1,0 @@
-{
-  "debug_url": "http://localhost:9222",
-  "auto_submit": false,
-  "use_ollama": true,
-  "ollama_model": "qwen2.5-coder:14b",
-  "verbose": true,
-  "num_ctx": 8192,
-  "num_predict": 500
-}
