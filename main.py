@@ -1,6 +1,7 @@
 """
-main.py v3 : passe le tag HTML (input/select) au resolver pour permettre
+main.py v4 : passe le tag HTML (input/select) au resolver pour permettre
 la logique spéciale "Autre" sur les select fermés d'institution/programme.
+Réinitialise l'état du resolver Workday à chaque nouvelle page traitée.
 """
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
@@ -8,7 +9,7 @@ from src.config import DEBUG_URL, AUTO_SUBMIT, log
 from src.data_store import load_profile
 from src.browser import pick_page
 from src.fields import candidate_texts, describe_element, should_skip, get_select_options
-from src.resolver import resolve_field
+from src.resolver import resolve_field, reset_workday_block_state
 from src.filler import fill_element, handle_radio_group
 from src.checkbox import decide_checkbox
 from src.utils import mask_value, safe_candidates
@@ -30,6 +31,10 @@ def main():
         page = pick_page(context)
         page.wait_for_load_state("domcontentloaded")
 
+        # Nouvelle page -> nouveau formulaire -> le mapping bloc Workday
+        # (block_id -> index d'expérience) ne doit pas hériter d'une page précédente.
+        reset_workday_block_state()
+
         locator = page.locator("input, textarea, select")
         count = locator.count()
 
@@ -37,73 +42,82 @@ def main():
         print(f"Page   : {page.url}")
         print(f"Champs : {count}\n")
 
+                
+
         for i in range(count):
-            el = locator.nth(i)
-            candidates = candidate_texts(page, el)
-            desc = describe_element(el)
-            input_type = desc["type"]
-            tag = desc["tag"]
+                    try:
+                        el = locator.nth(i)
+                        candidates = candidate_texts(page, el)
+                        desc = describe_element(el)
+                        input_type = desc["type"]
+                        tag = desc["tag"]
 
-            if should_skip(el, candidates):
-                skipped.append({"index": i, "reason": "skip_rule", "desc": desc, "candidates": candidates})
-                log(f"[SKIP #{i}] {desc} | candidates={safe_candidates(candidates)}")
-                continue
+                        if should_skip(el, candidates):
+                            skipped.append({"index": i, "reason": "skip_rule", "desc": desc, "candidates": candidates})
+                            log(f"[SKIP #{i}] {desc} | candidates={safe_candidates(candidates)}")
+                            continue
 
-            if input_type == "checkbox":
-                value = decide_checkbox(candidates)
-                log(f"[CHECKBOX #{i}] candidates={safe_candidates(candidates)} → {value}")
-                success, action = fill_element(el, value)
-                entry = {"index": i, "key": "checkbox", "source": "checkbox_engine",
-                         "value": value, "masked_value": value, "action": action,
-                         "desc": desc, "candidates": candidates}
-                if success:
-                    filled.append(entry)
-                    log(f"[FILLED CHECKBOX #{i}] value={value} action={action}\n")
-                else:
-                    unresolved.append({**entry, "reason": action})
-                    log(f"[FAILED CHECKBOX #{i}] reason={action}\n")
-                continue
+                        if input_type == "checkbox":
+                            value = decide_checkbox(candidates)
+                            log(f"[CHECKBOX #{i}] candidates={safe_candidates(candidates)} → {value}")
+                            success, action = fill_element(el, value)
+                            entry = {"index": i, "key": "checkbox", "source": "checkbox_engine",
+                                    "value": value, "masked_value": value, "action": action,
+                                    "desc": desc, "candidates": candidates}
+                            if success:
+                                filled.append(entry)
+                                log(f"[FILLED CHECKBOX #{i}] value={value} action={action}\n")
+                            else:
+                                unresolved.append({**entry, "reason": action})
+                                log(f"[FAILED CHECKBOX #{i}] reason={action}\n")
+                            continue
 
-            available_options = None
-            if tag == "select":
-                available_options = get_select_options(el)
+                        available_options = None
+                        if tag == "select":
+                            available_options = get_select_options(el)
 
-            value, source, debug_key, skip = resolve_field(
-                candidates, profile, input_type, tag=tag, available_options=available_options
-            )
+                        value, source, debug_key, skip = resolve_field(
+                            candidates, profile, input_type, tag=tag, available_options=available_options
+                        )
 
-            log(f"[FIELD #{i}] {desc}")
-            log(f"           candidates={safe_candidates(candidates)}")
-            log(f"           key(debug)={debug_key} | source={source} | skip={skip}")
+                        log(f"[FIELD #{i}] {desc}")
+                        log(f"           candidates={safe_candidates(candidates)}")
+                        log(f"           key(debug)={debug_key} | source={source} | skip={skip}")
 
-            if skip or not value:
-                unresolved.append({"index": i, "reason": f"{source}_no_match", "desc": desc, "candidates": candidates})
-                log(f"[UNRESOLVED #{i}] Aucune correspondance trouvée\n")
-                continue
+                        if skip or not value:
+                            unresolved.append({"index": i, "reason": f"{source}_no_match", "desc": desc, "candidates": candidates})
+                            log(f"[UNRESOLVED #{i}] Aucune correspondance trouvée\n")
+                            continue
 
-            if input_type == "radio":
-                success, action = handle_radio_group(el, debug_key or "radio", value, candidates)
-                entry = {"index": i, "key": debug_key, "source": source, "value": value,
-                         "masked_value": mask_value(value), "action": action,
-                         "desc": desc, "candidates": candidates}
-                if success:
-                    filled.append(entry)
-                    log(f"[FILLED RADIO #{i}] value={value} | action={action}\n")
-                else:
-                    unresolved.append({**entry, "reason": action})
-                    log(f"[FAILED RADIO #{i}] reason={action}\n")
-                continue
+                        if input_type == "radio":
+                            success, action = handle_radio_group(el, debug_key or "radio", value, candidates)
+                            entry = {"index": i, "key": debug_key, "source": source, "value": value,
+                                    "masked_value": mask_value(value), "action": action,
+                                    "desc": desc, "candidates": candidates}
+                            if success:
+                                filled.append(entry)
+                                log(f"[FILLED RADIO #{i}] value={value} | action={action}\n")
+                            else:
+                                unresolved.append({**entry, "reason": action})
+                                log(f"[FAILED RADIO #{i}] reason={action}\n")
+                            continue
 
-            success, action = fill_element(el, value)
-            entry = {"index": i, "key": debug_key, "source": source, "value": value,
-                     "masked_value": mask_value(value), "action": action,
-                     "desc": desc, "candidates": candidates}
-            if success:
-                filled.append(entry)
-                log(f"[FILLED #{i}] key={debug_key} | value={mask_value(value)} | action={action}\n")
-            else:
-                unresolved.append({**entry, "reason": action})
-                log(f"[FAILED #{i}] key={debug_key} | reason={action}\n")
+                        success, action = fill_element(el, value)
+                        entry = {"index": i, "key": debug_key, "source": source, "value": value,
+                                "masked_value": mask_value(value), "action": action,
+                                "desc": desc, "candidates": candidates}
+                        if success:
+                            filled.append(entry)
+                            log(f"[FILLED #{i}] key={debug_key} | value={mask_value(value)} | action={action}\n")
+                        else:
+                            unresolved.append({**entry, "reason": action})
+                            log(f"[FAILED #{i}] key={debug_key} | reason={action}\n")
+
+                    except Exception as e:
+                        unresolved.append({"index": i, "reason": f"unexpected_error: {e}",
+                                            "desc": {}, "candidates": []})
+                        log(f"[ERROR #{i}] Exception non gérée, champ ignoré : {e}\n")
+                        continue
 
         if filled:
             print("\n--- CHAMPS REMPLIS ---")

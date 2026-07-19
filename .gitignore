@@ -1,12 +1,21 @@
+# --- Environnement virtuel ---
+.venv/
+
+# --- Secrets et configurations locales ---
+.env
+.env.secret
+.envrc
+profil.json
+data.json
+
+# --- Code temporaire / Scripts spécifiques ---
 agent_form_ollama.py
 agent_form.py
-data.json
-READMEv1.md
-.venv
-/.venv
-.envrc
-/.envrc
-/src/__pycache__/
-/src/*.pyc
+
+# --- Python cache & Logs ---
+**/__pycache__/
+*.pyc
 *.log
-profil.json
+
+# --- Documentation obsolète / Versions ---
+READMEv1.md

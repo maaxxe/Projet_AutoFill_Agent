@@ -39,6 +39,37 @@ def candidate_texts(page, el) -> list:
     except Exception:
         pass
 
+    # NOUVEAU : texte de la question portée par un <fieldset><legend> ou
+    # un conteneur role="group"/aria-labelledby (cas Workable/Greenhouse
+    # pour les groupes de radios YES/NO sans label direct sur l'input).
+    try:
+        group_texts = el.evaluate("""
+            (node) => {
+                const texts = [];
+                const fieldset = node.closest('fieldset');
+                if (fieldset) {
+                    const legend = fieldset.querySelector('legend');
+                    if (legend) texts.push(legend.innerText || legend.textContent || '');
+                }
+                const group = node.closest('[role="group"], [role="radiogroup"], .form-field, [class*="question"]');
+                if (group) {
+                    const labelledBy = group.getAttribute('aria-labelledby');
+                    if (labelledBy) {
+                        for (const id of labelledBy.split(' ')) {
+                            const target = document.getElementById(id);
+                            if (target) texts.push(target.innerText || target.textContent || '');
+                        }
+                    }
+                    const heading = group.querySelector('legend, [class*="question"], label:not([for])');
+                    if (heading && heading !== node) texts.push(heading.innerText || heading.textContent || '');
+                }
+                return texts.filter(Boolean);
+            }
+        """)
+        texts.extend([t.strip() for t in group_texts if t and t.strip()])
+    except Exception:
+        pass
+
     try:
         described = el.get_attribute("aria-describedby") or ""
         for eid in described.split():
@@ -57,7 +88,6 @@ def candidate_texts(page, el) -> list:
             seen.add(n)
             deduped.append(t)
     return deduped
-
 
 def describe_element(el) -> dict:
     return {

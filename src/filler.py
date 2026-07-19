@@ -20,21 +20,67 @@ def value_alternatives(value: str) -> list:
             deduped.append(alt)
     return deduped
 
-
 def handle_radio_group(el, key: str, value: str, candidates: list):
     val = normalize(str(value))
     text = normalize(" ".join(candidates))
-    if any(x in text for x in ["monsieur", "mr", "m."]) and val in {"m", "mr", "monsieur", "m."}:
-        el.check()
-        return True, "radio_check(monsieur)"
-    if any(x in text for x in ["madame", "mme", "mrs"]) and val in {"mme", "madame", "mrs"}:
-        el.check()
-        return True, "radio_check(madame)"
-    if val and val in text:
-        el.check()
-        return True, "radio_check(generic_match)"
-    return False, "radio_skip_no_match"
 
+    match_label = None
+    if any(x in text for x in ["monsieur", "mr", "m."]) and val in {"m", "mr", "monsieur", "m."}:
+        match_label = "monsieur"
+    elif any(x in text for x in ["madame", "mme", "mrs"]) and val in {"mme", "madame", "mrs"}:
+        match_label = "madame"
+    elif val and val in text:
+        match_label = "generic_match"
+
+    if not match_label:
+        return False, "radio_skip_no_match"
+
+    # Stratégie 1 : check() standard
+    try:
+        el.check(timeout=3000)
+        if el.is_checked():
+            return True, f"radio_check({match_label})"
+    except Exception:
+        pass
+
+    # Stratégie 2 : clic forcé (contourne les checks de visibilité Playwright)
+    try:
+        el.click(force=True, timeout=3000)
+        if el.is_checked():
+            return True, f"radio_click_force({match_label})"
+    except Exception:
+        pass
+
+    # Stratégie 3 : clic sur le label/wrapper associé (radios custom-stylés)
+    try:
+        clicked = el.evaluate("""(input) => {
+            const id = input.getAttribute('id');
+            if (id) {
+                const label = document.querySelector('label[for="' + id + '"]');
+                if (label) { label.click(); return 'label[for]'; }
+            }
+            const parentLabel = input.closest('label');
+            if (parentLabel) { parentLabel.click(); return 'parent_label'; }
+            const next = input.nextElementSibling;
+            if (next) { next.click(); return 'next_sibling'; }
+            return 'none';
+        }""")
+        if el.is_checked():
+            return True, f"radio_label_click({clicked})({match_label})"
+    except Exception:
+        pass
+
+    # Stratégie 4 : forçage JS pur, dernier recours
+    try:
+        el.evaluate("""(e) => {
+            e.checked = true;
+            e.dispatchEvent(new Event('input', {bubbles: true}));
+            e.dispatchEvent(new Event('change', {bubbles: true}));
+            e.dispatchEvent(new Event('click', {bubbles: true}));
+        }""")
+        return True, f"radio_js_force({match_label})"
+    except Exception as e:
+        return False, f"radio_check_failed: {e}"
 
 def fill_element(el, value: str) -> tuple[bool, str]:
     tag = el.evaluate("e => e.tagName.toLowerCase()")
