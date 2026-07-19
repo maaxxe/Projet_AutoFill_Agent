@@ -17,15 +17,27 @@ python -m playwright install chromium
 
 ```json
 {
+  // URL de connexion CDP au navigateur Chromium ouvert
   "debug_url": "http://localhost:9222",
+
+  // Passe à true pour valider automatiquement le formulaire en fin de script
   "auto_submit": false,
+
+  // Active l'appel à l'IA locale pour déduire les champs non gérés par les règles déterministes
   "use_ollama": true,
+
+  // Le modèle à exécuter. Privilégier un modèle code plutôt qu'un modèle chat
   "ollama_model": "qwen2.5-coder:14b",
+
+  // Affiche les logs d'exécution détaillés dans le terminal
   "verbose": true,
+
+  // Taille du contexte envoyé à l'IA. À augmenter si le formulaire contient des menus déroulants immenses
   "num_ctx": 8192,
+
+  // Nombre maximum de tokens (mots) que l'IA est autorisée à générer en réponse
   "num_predict": 500
 }
-
 ```
 
 | Clé             | Description                                                                                                                                                                                                          |
